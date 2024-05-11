@@ -1,5 +1,5 @@
 local addr = {
-	timestop = { -- 0x2 mask
+	timestop = {
 		US = 0x8033D480,
 		JP = 0x8033C110,
 		size = 4,
@@ -22,12 +22,13 @@ local addr = {
 }
 
 local set_timestop_for = {
+	[0] = false, -- unknown
 	true, -- enabled
 	false, -- dialog
 	false, -- mario and doors
 	false, -- all objects
 	false, -- mario opened door
-	true, -- active
+	false, -- active
 }
 
 local function determineVersion() -- from InputDirection
@@ -48,21 +49,34 @@ local function write(location, value)
 	memory.writesize(addr[location][version], addr[location].size, value)
 end
 
-
-local function shouldTimeStop()
+local function shouldntTimeStop()
 	local action = read("action")
+
+	local function uninitializedAction()
+		return action == 0
+	end
+
 	local level = read("level")
 	local levelIndex = read("levelIndex")
-	return (
-		(not (action == 0)) and -- the action is not uninitialized
-		(not ((levelIndex == 16) and (level == 30))) and -- we aren't in the first bowser fight
-		(not ((levelIndex == 17) and (level == 33))) and -- we aren't in the second bowser fight
-		(not ((levelIndex == 18) and (level == 21))) -- we aren't in the third bowser fight
-	)
+
+	local function inFirstBowserFight()
+		return levelIndex == 16 and level == 30
+	end
+	local function inSecondBowserFight()
+		return levelIndex == 17 and level == 33
+	end
+	local function inThirdBowserFight()
+		return levelIndex == 18 and level == 34
+	end
+
+	return uninitializedAction() or
+		inFirstBowserFight() or
+		inSecondBowserFight() or
+		inThirdBowserFight()
 end
 
-local function atinput()
-	if not shouldTimeStop() then return end
+emu.atinput(function()
+	if shouldntTimeStop() then return end
 
 	local new_timestop = read("timestop")
 	for k, v in pairs(set_timestop_for) do
@@ -71,6 +85,4 @@ local function atinput()
 		end
 	end
 	write("timestop", new_timestop)
-end
-
-emu.atinput(atinput)
+end)
